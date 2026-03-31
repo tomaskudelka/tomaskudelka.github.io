@@ -1,25 +1,81 @@
-<!DOCTYPE html>
+<!<!DOCTYPE html>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Týmový Chat</title>
+    <title>Týmový Chat | Live</title>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #1f1f1f; padding: 15px; text-align: center; border-bottom: 2px solid #007bff; }
-        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { background: #2a2a2a; padding: 10px 15px; border-radius: 15px; max-width: 80%; align-self: flex-start; line-height: 1.4; border: 1px solid #333; }
-        .input-area { padding: 20px; background: #1f1f1f; display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border: none; border-radius: 25px; background: #333; color: white; outline: none; }
-        button { padding: 10px 25px; border-radius: 25px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: #121212; 
+            color: #e0e0e0; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+        }
+        header { 
+            background: #1f1f1f; 
+            padding: 15px; 
+            text-align: center; 
+            border-bottom: 2px solid #007bff; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        #chat-box { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            background: #121212;
+        }
+        .msg { 
+            background: #2a2a2a; 
+            padding: 10px 18px; 
+            border-radius: 18px; 
+            max-width: 85%; 
+            align-self: flex-start; 
+            line-height: 1.5; 
+            border: 1px solid #333; 
+            word-wrap: break-word;
+        }
+        .input-area { 
+            padding: 20px; 
+            background: #1f1f1f; 
+            display: flex; 
+            gap: 12px; 
+            border-top: 1px solid #333;
+        }
+        input { 
+            flex: 1; 
+            padding: 14px; 
+            border: 1px solid #444; 
+            border-radius: 30px; 
+            background: #333; 
+            color: white; 
+            outline: none; 
+            font-size: 16px;
+        }
+        input:focus { border-color: #007bff; }
+        button { 
+            padding: 0 25px; 
+            border-radius: 30px; 
+            border: none; 
+            background: #007bff; 
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: background 0.3s; 
+        }
         button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
     <header>
-        <h2>Společný Chat</h2>
+        <h2 style="margin:0;">Týmová Komunikace</h2>
     </header>
 
     <div id="chat-box">
@@ -31,8 +87,10 @@
     </div>
 
     <script>
-        // 1. Připojení k Ably (Zde vložte svůj API klíč)
-        const API_KEY = 'c7RSNA.08_1eQ:5xgh6jYSoUIUC28zXqxm6ts0U7cWL0rIA6pziA9zUlA'; 
+        // --- KONFIGURACE ---
+        // Vložte svůj API klíč z Ably (ten, co jste vyfotil)
+        const API_KEY = 'VAŠ_ABLY_API_KEY_ZDE'; 
+        
         const ably = new Ably.Realtime(API_KEY);
         const channel = ably.channels.get('hlavni-chat');
 
@@ -40,17 +98,36 @@
         const msgInput = document.getElementById('msg-input');
         const sendBtn = document.getElementById('send-btn');
 
-        // 2. Příjem zpráv od ostatních
-        channel.subscribe('msg', (message) => {
+        // --- FUNKCE ---
+
+        // Pomocná funkce pro zobrazení zprávy v okně
+        function zobrazZpravu(text) {
             const div = document.createElement('div');
             div.className = 'msg';
-            div.innerText = message.data;
+            div.innerText = text;
             chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight; // Automatické odrolování dolů
+            // Automatické posunutí dolů na nejnovější zprávu
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // 1. Načtení historie (zprávy odeslané dříve)
+        channel.history({ limit: 50 }, (err, resultPage) => {
+            if (!err) {
+                // Historie přichází od nejnovější, musíme ji otočit
+                const historyMessages = resultPage.items.reverse();
+                historyMessages.forEach(msg => {
+                    zobrazZpravu(msg.data);
+                });
+            }
         });
 
-        // 3. Funkce pro odeslání
-        function sendMessage() {
+        // 2. Příjem nových zpráv v reálném čase
+        channel.subscribe('msg', (message) => {
+            zobrazZpravu(message.data);
+        });
+
+        // 3. Odesílání zpráv
+        function odeslat() {
             const text = msgInput.value.trim();
             if (text !== "") {
                 channel.publish('msg', text);
@@ -58,11 +135,12 @@
             }
         }
 
-        // Event listenery
-        sendBtn.addEventListener('click', sendMessage);
+        // Ovládání klávesnicí a tlačítkem
+        sendBtn.addEventListener('click', odeslat);
         msgInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+            if (e.key === 'Enter') odeslat();
         });
+
     </script>
 </body>
 </html>
